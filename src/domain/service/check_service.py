@@ -1,4 +1,5 @@
 from typing import Dict
+from src.domain.model.model import ProgramType
 class CheckService:
     def __init__(self):
         self.max_byte_size = 20*1024*1024
@@ -9,7 +10,10 @@ class CheckService:
         documents = []
         if not program_name:
             error_list.append("не указан тип программы")
-            return False
+            program_name = ""
+
+        if program_name.lower() not in [e.value for e in ProgramType]:
+            error_list.append("не верный тип программы")
 
         for key in param_dict:
             for ind, val in enumerate(param_dict[key]["size"]):

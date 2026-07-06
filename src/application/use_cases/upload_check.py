@@ -1,3 +1,5 @@
+"""
+
 import uuid
 from typing import List
 from fastapi import UploadFile
@@ -25,3 +27,4 @@ class UploadChecksUseCase:
             if
             number += 1
 
+"""
