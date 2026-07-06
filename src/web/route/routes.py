@@ -2,6 +2,7 @@ from fastapi import FastAPI, Form, File, UploadFile
 from fastapi.responses import JSONResponse
 from typing import List
 from src.web.model.model import ProgramType
+
 from src.di.container import Container
 import asyncio
 import uuid
@@ -11,24 +12,50 @@ from pathlib import Path
 app = FastAPI()
 def init_routes(app, container):
     upload_checks = container.upload_checks()
-    @app.route('api/checks', methods=['POST'])
+    @app.post('/api/checks')
     async def load_docks():
 
         program: ProgramType = Form(...)
         if program not in ['federal', 'regional']:
             return JSONResponse(status_code=400, content={"error": "неверная программа"})
         files: List[UploadFile] = File(...)
-        unique_uuid = str(uuid.uuid4())
+        #unique_uuid = str(uuid.uuid4())
         if not files:
             return JSONResponse(status_code=400, content={"error": "не загружены файлы"})
-        saved_files = []
+
+        file_dict = {}
+        error_list = []
         for file in files:
             full_name = file.filename
-            file_name = Path(full_name).stem
-            file_ext = Path(full_name).suffix
-            file_uuid = str(uuid.uuid4())
-            uniq_name = f"{file_uuid}_{file_name}"
-            path_file = f"{unique_uuid}_{uniq_name}{file_ext}"
+            if not full_name:
+                error_list.append("файл не загружен или не имеет имени")
+                continue
+
+            name, ext, size = "", "", 0
+            if Path(full_name).stem:
+                name = Path(full_name).stem
+
+            if Path(full_name).suffix:
+                ext = Path(full_name).suffix
+
+            if file.size:
+                size = file.size
+
+            if full_name not in file_dict:
+                file_dict[full_name] = {"name": [name], "ext": [ext], "size": [size]}
+            else:
+                file_dict[full_name]["name"].append(name)
+                file_dict[full_name]["ext"].append(ext)
+                file_dict[full_name]["size"].append(size)
+                error_list.append(f"Файл {full_name} с таким именем уже был загружен")
+
+            await file.close()
+
+        return True
+            #file_uuid = str(uuid.uuid4())
+            #uniq_name = f"{file_uuid}_{file_name}"
+            #path_file = f"{unique_uuid}_{uniq_name}{file_ext}"
+"""
             success = False
             size = 1024*64
             try:
@@ -68,3 +95,4 @@ def init_routes(app, container):
         if not get_check_result(id):
            return  "не верный id заявки", 400
         return get_check_result(id), 201
+"""

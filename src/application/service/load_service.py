@@ -21,6 +21,22 @@ class LoadService(IFileLoadStorage):
             file_ext = Path(full_name).suffix
             file_uuid = str(uuid.uuid4())
             uniq_name = f"{file_uuid}_{file_name}"
+            file_size = file.size
+            path_file = f"{unique_uuid}_{uniq_name}{file_ext}"
+            success = False
+
+        return saved_files
+
+
+"""
+    async def save_files(self, files: List[UploadFile], unique_uuid: str):
+        saved_files = []
+        for file in files:
+            full_name = file.filename
+            file_name = Path(full_name).stem
+            file_ext = Path(full_name).suffix
+            file_uuid = str(uuid.uuid4())
+            uniq_name = f"{file_uuid}_{file_name}"
             path_file = f"{unique_uuid}_{uniq_name}{file_ext}"
             success = False
             try:
@@ -51,3 +67,4 @@ class LoadService(IFileLoadStorage):
                     raise IOError(f"Загрузка пачки прервана на файле: {full_name}")
 
         return saved_files
+"""
