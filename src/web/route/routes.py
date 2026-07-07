@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Form, File, UploadFile, HTTPException, status
 from fastapi.responses import JSONResponse
-from typing import List
 from src.web.model.model import CheckResponseSchema
+from typing import List
 
 from pathlib import Path
 
@@ -29,23 +29,26 @@ def init_routes(container):
 
         incoming_files = []
         for file in files:
+            # позже сюда добавятся и проверки содержимого
+            # await file.read()
             path = Path(file.filename or "unnamed")
 
             incoming_files.append({
-                "ful_name": file.filename or "unnamed",
+                "name": file.filename or "unnamed",
                 "size_bytes": file.size or 0,
-                "name": path.stem,
-                "ext": path.suffix})
-            await file.close()
+                "stem": path.stem,
+                "ext": path.suffix
+            })
+
         check_result = check_service.checking(incoming_files, program)
-        packet_id = repository.save_data(
+        packet_id = await repository.save_data(
             program_type=program,
             status=check_result["status"],
             status_label=check_result["status_label"],
             reason=check_result["reason"],
             issues=check_result["issues"],
             extracted=check_result["extracted"],
-            list_of_names=check_result["documents"]
+            documents_data=check_result["documents"]
         )
         result_response = CheckResponseSchema(
             check_id=str(packet_id),
@@ -57,6 +60,8 @@ def init_routes(container):
             extracted=check_result["extracted"],
             checked_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         )
+        for file in files:
+            await file.close()
 
         if check_result["status"] == "reject":
             return JSONResponse(status_code=400, content=result_response.model_dump())
