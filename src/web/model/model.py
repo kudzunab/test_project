@@ -19,7 +19,7 @@ class CheckResponseSchema(BaseModel):
     check_id: str
     status: str
     status_label: str
-    reason: Optional[str] = None
+    reason: Optional[str] = "Нет данных"
     issues: List[IssueModel] = []
     documents: List[DocumentModel] = []
     extracted: ExtractedModel
