@@ -58,7 +58,7 @@ def init_routes(container):
             issues=check_result["issues"],
             documents=check_result["documents"],
             extracted=check_result["extracted"],
-            checked_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            checked_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         )
         for file in files:
             await file.close()
