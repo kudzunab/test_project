@@ -13,5 +13,6 @@ from pathlib import Path
 from src.application.module.module import main
 
 sys.path.append(str(Path(__file__).parent.parent))
+
 if __name__ == "__main__":
     main()
