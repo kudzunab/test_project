@@ -17,12 +17,13 @@ class RequestStatus(Base):
     reason: Mapped[str] = mapped_column(String, nullable=True)
     issues: Mapped[list|None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-
+    extracted:  Mapped[dict|None]= mapped_column(JSON, nullable=True)
 class DocumentsList(Base):
     __tablename__ = "documents_info"
     docs_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     packet_id: Mapped[int|None] = mapped_column(BigInteger, ForeignKey('request_status.id', name="fk_paket_id",
-                                                                    ondelete="SET NULL"), nullable=True)
+                                                                ondelete="SET NULL"), nullable=True)
+    detected_type: Mapped[str | None] = mapped_column(String, nullable=True)
     docs_name: Mapped[str] = mapped_column(String)
     size_kb: Mapped[str | None] = mapped_column(String, nullable=True)
 
