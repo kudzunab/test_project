@@ -1,66 +1,116 @@
-from fastapi import FastAPI, Form, File, UploadFile
+from datetime import datetime, timezone
+from fastapi import APIRouter, Form, File, UploadFile, HTTPException, status
 from fastapi.responses import JSONResponse
 from typing import List
-#from src.domain.model.model import ProgramType
+from src.web.model.model import CheckResponseSchema
 
 from pathlib import Path
-app = FastAPI()
-def init_routes(app, container):
+
+router = APIRouter()
+
+def init_routes(container):
     #upload_checks = container.upload_checks()
     check_service = container.check_service()
+    repository = container.repository()
     #load_check_service = container.load_check_service()
-    @app.post('/api/checks')
+    @router.get('/')
+    def init():
+        return {
+            "status": "success",
+            "message": "Добро пожаловать на сайт обработки документов"
+        }
+    @router.post('/api/checks')
     async def load_docks(
             program: str = Form(...),
             files: List[UploadFile] = File(...)
     ):
-        error_list = []
-        #unique_uuid = str(uuid.uuid4())
-
         if not files:
             return JSONResponse(status_code=400, content={"error": "не загружены файлы"})
 
-        file_dict = {}
-
+        incoming_files = []
         for file in files:
-            full_name = file.filename
-            if not full_name:
-                error_list.append("файл не загружен или не имеет имени")
-                continue
+            path = Path(file.filename or "unnamed")
 
-            name, ext, size = "", "", 0
-            if Path(full_name).stem:
-                name = Path(full_name).stem
-
-            if Path(full_name).suffix:
-                ext = Path(full_name).suffix
-
-            if file.size:
-                size = file.size
-
-            if full_name not in file_dict:
-                file_dict[full_name] = {"name": [name], "ext": [ext], "size": [size]}
-            else:
-                file_dict[full_name]["name"].append(name)
-                file_dict[full_name]["ext"].append(ext)
-                file_dict[full_name]["size"].append(size)
-                error_list.append(f"Файл {full_name} с таким именем уже был загружен")
-
+            incoming_files.append({
+                "ful_name": file.filename or "unnamed",
+                "size_bytes": file.size or 0,
+                "name": path.stem,
+                "ext": path.suffix})
             await file.close()
-        is_ok, warning_list, error_list_0 = check_service.checking(file_dict, program)
-        error_list.extend(error_list_0)
-        if is_ok:
-            for war in warning_list:
-                print(war)
+        check_result = check_service.checking(incoming_files, program)
+        packet_id = repository.save_data(
+            program_type=program,
+            status=check_result["status"],
+            status_label=check_result["status_label"],
+            reason=check_result["reason"],
+            issues=check_result["issues"],
+            extracted=check_result["extracted"],
+            list_of_names=check_result["documents"]
+        )
+        result_response = CheckResponseSchema(
+            check_id=str(packet_id),
+            status=check_result["status"],
+            status_label=check_result["status_label"],
+            reason=check_result["reason"],
+            issues=check_result["issues"],
+            documents=check_result["documents"],
+            extracted=check_result["extracted"],
+            checked_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        )
 
-            return JSONResponse(status_code=200, content={"status": "approved", "warnings": warning_list})
+        if check_result["status"] == "reject":
+            return JSONResponse(status_code=400, content=result_response.model_dump())
+        return result_response
 
-        return JSONResponse(status_code=400, content={"status": "rejected", "warnings": warning_list,
-                                                      "errors": error_list})
+    @router.get('/api/checks')
+    async def get_checks():
+        result = await repository.get_full_checks()
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Ошибка при получению данных из базы"
+            )
+        return [
+            {
+                "id": str(row.id),
+                "date": row.created_at.isoformat() + "Z" if row.created_at else None,
+                "program": row.program_type,
+                "status": row.status,
+                "documents_count": row.documents_count
+            }
+            for row in result
+        ]
 
-            #file_uuid = str(uuid.uuid4())
-            #uniq_name = f"{file_uuid}_{file_name}"
-            #path_file = f"{unique_uuid}_{uniq_name}{file_ext}"
+    @router.get('/api/checks/{check_id}')
+    async def get_check_result(check_id: int):
+        result = await repository.get_check_with_id(check_id)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Проверка с ID {check_id} не найдена"
+            )
+        check_data, documents = result
+        return {
+            "check_id": str(check_data.id),
+            "status": check_data.status,
+            "status_label": check_data.status_label,
+            "reason": check_data.reason,
+            "issues": check_data.issues or [],  # Защита от None в JSON-поле
+            "documents": [
+                {
+                    "name": doc.docs_name,
+                    "detected_type": doc.detected_type,
+                    "size_kb": doc.size_kb
+                }
+                for doc in documents
+            ],
+            "extracted": check_data.extracted or {},  # Защита от None
+            "checked_at": check_data.created_at.isoformat() + "Z" if check_data.created_at else None
+        }
+
+    return router
+
+
 """
             success = False
             size = 1024*64

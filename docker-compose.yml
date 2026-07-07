@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: doc_check_db
+    restart: always
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      POSTGRES_DB: base_for_docs
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d base_for_docs"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: doc_check_api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONPATH: .
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: base_for_docs
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
